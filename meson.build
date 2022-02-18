@@ -1,5 +1,5 @@
 project('triangle', 'c',
-  version : '0.1',
+  version : '1.6',
   default_options : ['warning_level=3'])
 
 
