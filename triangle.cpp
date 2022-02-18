@@ -345,10 +345,12 @@
 #define INT_PTR unsigned long long
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cmath>
+#include <string>
+#include <stdexcept>
 #ifndef NO_TIMER
 #include <sys/time.h>
 #endif /* not NO_TIMER */
@@ -365,8 +367,8 @@
 /* A few forward declarations.                                               */
 
 #ifndef TRILIBRARY
-char *readline();
-char *findfield();
+char *readline(char *string, FILE *infile, char *infilename);
+char *findfield(char *string);
 #endif /* not TRILIBRARY */
 
 /* Labels that signify the result of point location.  The result of a        */
@@ -646,12 +648,12 @@ struct memorypool {
 
 /* Global constants.                                                         */
 
-REAL splitter;       /* Used to split REAL factors for exact multiplication. */
-REAL epsilon;                             /* Floating-point machine epsilon. */
-REAL resulterrbound;
-REAL ccwerrboundA, ccwerrboundB, ccwerrboundC;
-REAL iccerrboundA, iccerrboundB, iccerrboundC;
-REAL o3derrboundA, o3derrboundB, o3derrboundC;
+static REAL splitter;       /* Used to split REAL factors for exact multiplication. */
+static REAL epsilon;                             /* Floating-point machine epsilon. */
+static REAL resulterrbound;
+static REAL ccwerrboundA, ccwerrboundB, ccwerrboundC;
+static REAL iccerrboundA, iccerrboundB, iccerrboundC;
+static REAL o3derrboundA, o3derrboundB, o3derrboundC;
 
 /* Random number seed is not constant, but I've made it global anyway.       */
 
@@ -1420,7 +1422,7 @@ int status;
 #endif /* not ANSI_DECLARATORS */
 
 {
-  exit(status);
+  throw std::runtime_error("triexit("+std::to_string(status)+")");
 }
 
 #ifdef ANSI_DECLARATORS
@@ -6447,7 +6449,7 @@ REAL dheight;
   adxbdy = adx * bdy;
   bdxady = bdx * ady;
 
-  det = adheight * (bdxcdy - cdxbdy) 
+  det = adheight * (bdxcdy - cdxbdy)
       + bdheight * (cdxady - adxcdy)
       + cdheight * (adxbdy - bdxady);
 
@@ -11488,7 +11490,7 @@ FILE *polyfile;
       for (j = 0; j < 2; j++) {
         if ((end[j] < b->firstnumber) ||
             (end[j] >= b->firstnumber + m->invertices)) {
-          printf("Error:  Segment %ld has an invalid vertex index.\n", 
+          printf("Error:  Segment %ld has an invalid vertex index.\n",
                  segmentnumber);
           triexit(1);
         }
@@ -11621,6 +11623,12 @@ vertex searchpoint;
   REAL leftccw, rightccw;
   int leftflag, rightflag;
   triangle ptr;           /* Temporary variable used by onext() and oprev(). */
+  int iter;
+  // Number of iterations allowed before throwing an exception and declaring
+  // this to be hitting a bug that causes an infinite loop.
+  //
+  // Valid worst case: vertex is incident on every face. 
+  int max_iter = 2*m->triangles.items+100;
 
   org(*searchtri, startvertex);
   dest(*searchtri, rightvertex);
@@ -11641,6 +11649,7 @@ vertex searchpoint;
       rightflag = 0;
     }
   }
+  iter = 0;
   while (leftflag) {
     /* Turn left until satisfied. */
     onextself(*searchtri);
@@ -11655,7 +11664,14 @@ vertex searchpoint;
     rightccw = leftccw;
     leftccw = counterclockwise(m, b, searchpoint, startvertex, leftvertex);
     leftflag = leftccw > 0.0;
+    iter++;
+    if(iter>max_iter)
+    {
+      printf("Bailing out after %d iterations in finddirection().\n",iter);
+      internalerror();
+    }
   }
+  iter = 0;
   while (rightflag) {
     /* Turn right until satisfied. */
     oprevself(*searchtri);
@@ -11670,6 +11686,12 @@ vertex searchpoint;
     leftccw = rightccw;
     rightccw = counterclockwise(m, b, startvertex, searchpoint, rightvertex);
     rightflag = rightccw > 0.0;
+    iter++;
+    if(iter>max_iter)
+    {
+      printf("Bailing out after %d iterations in finddirection().\n",iter);
+      internalerror();
+    }
   }
   if (leftccw == 0.0) {
     return LEFTCOLLINEAR;
@@ -13123,7 +13145,7 @@ int regions;
         } else {
           printf("Spreading regional attributes.\n");
         }
-      } else { 
+      } else {
         printf("Spreading regional area constraints.\n");
       }
     }
